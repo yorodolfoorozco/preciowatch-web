@@ -1,0 +1,1026 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>PrecioWatch</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',sans-serif;background:#0f0f12;color:#f0f0f0;min-height:100vh;overscroll-behavior:none}
+
+    /* ── HEADER ── */
+    header{padding:14px 16px 10px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #1e1e26;position:sticky;top:0;background:#0f0f12;z-index:100}
+    .logo{display:flex;align-items:center;gap:8px}
+    .logo-dot{width:10px;height:10px;border-radius:50%;background:#4ade80;box-shadow:0 0 8px #4ade8088}
+    header h1{font-size:18px;font-weight:700;color:#fff}
+    header h1 span{color:#4ade80}
+    .btn-icon{background:none;border:1px solid #2a2a36;color:#888;border-radius:10px;padding:7px 10px;cursor:pointer;font-size:14px}
+    .btn-icon:active{background:#1a1a22}
+
+    /* ── TABS ── */
+    .tabs{display:flex;gap:0;border-bottom:1px solid #1e1e26;background:#0f0f12;position:sticky;top:49px;z-index:99}
+    .tab{flex:1;padding:11px 0;text-align:center;font-size:13px;font-weight:600;color:#666;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;transition:all .15s}
+    .tab.active{color:#4ade80;border-bottom-color:#4ade80}
+
+    /* ── CONTAINER ── */
+    .container{max-width:700px;margin:0 auto;padding:14px}
+    .view{display:none}
+    .view.active{display:block}
+
+    /* ── PRODUCT CARDS ── */
+    .product-card{background:#1a1a22;border:1px solid #2a2a36;border-radius:16px;margin-bottom:10px;overflow:hidden;cursor:pointer;transition:border-color .15s}
+    .product-card:active{border-color:#4ade8066}
+    .card-main{display:flex;align-items:center;gap:12px;padding:12px}
+    .card-img{width:56px;height:56px;border-radius:10px;object-fit:contain;background:#111116;flex-shrink:0}
+    .card-img-placeholder{width:56px;height:56px;border-radius:10px;background:#111116;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
+    .card-info{flex:1;min-width:0}
+    .card-nombre{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:4px}
+    .card-prices{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:4px}
+    .price-chip{font-size:11px;font-weight:700;padding:2px 7px;border-radius:20px;border:1px solid}
+    .price-chip.jumbo    {color:#22c55e;border-color:#22c55e33;background:#22c55e11}
+    .price-chip.chango   {color:#38bdf8;border-color:#38bdf833;background:#38bdf811}
+    .price-chip.anonima  {color:#818cf8;border-color:#818cf833;background:#818cf811}
+    .price-chip.coope    {color:#fb923c;border-color:#fb923c33;background:#fb923c11}
+    .price-chip.carrefour{color:#f87171;border-color:#f8717133;background:#f8717111}
+    .price-chip.no-stock {opacity:.4}
+    .card-meta{font-size:11px;color:#555;display:flex;align-items:center;gap:6px}
+    .card-badge{font-size:10px;font-weight:700;padding:2px 6px;border-radius:6px}
+    .badge-promo{background:#22c55e22;color:#22c55e}
+    .badge-inactivo{background:#44444422;color:#666}
+    .toggle-btn{width:38px;height:22px;border-radius:11px;border:none;cursor:pointer;position:relative;transition:background .2s;flex-shrink:0}
+    .toggle-btn.on {background:#4ade80}
+    .toggle-btn.off{background:#333}
+    .toggle-btn::after{content:'';position:absolute;top:2px;width:18px;height:18px;border-radius:50%;background:#fff;transition:left .2s}
+    .toggle-btn.on::after {left:18px}
+    .toggle-btn.off::after{left:2px}
+
+    /* ── DETAIL VIEW ── */
+    .back-btn{display:flex;align-items:center;gap:6px;background:none;border:none;color:#888;font-size:14px;cursor:pointer;padding:0 0 14px;font-weight:500}
+    .back-btn:active{color:#fff}
+    .detail-header{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+    .detail-img{width:64px;height:64px;border-radius:12px;object-fit:contain;background:#111116}
+    .detail-nombre{font-size:16px;font-weight:700;line-height:1.3}
+    .detail-ean{font-size:11px;color:#555;margin-top:2px}
+
+    /* ── CHART ── */
+    .chart-card{background:#1a1a22;border:1px solid #2a2a36;border-radius:16px;padding:14px;margin-bottom:12px}
+    .chart-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+    .chart-title{font-size:13px;font-weight:600;color:#888}
+    .range-btns{display:flex;gap:4px}
+    .range-btn{padding:4px 10px;border-radius:8px;border:1px solid #2a2a36;background:none;color:#666;font-size:11px;font-weight:600;cursor:pointer}
+    .range-btn.active{background:#4ade8022;border-color:#4ade8066;color:#4ade80}
+    .chart-wrap{position:relative;height:200px}
+    .store-toggles{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+    .store-toggle{padding:4px 10px;border-radius:20px;border:1px solid;font-size:11px;font-weight:700;cursor:pointer;transition:opacity .15s}
+    .store-toggle.off{opacity:.3}
+    .store-toggle.jumbo    {color:#22c55e;border-color:#22c55e55}
+    .store-toggle.chango   {color:#38bdf8;border-color:#38bdf855}
+    .store-toggle.anonima  {color:#818cf8;border-color:#818cf855}
+    .store-toggle.coope    {color:#fb923c;border-color:#fb923c55}
+    .store-toggle.carrefour{color:#f87171;border-color:#f8717155}
+
+    /* ── SETTINGS PANEL (dentro del detail) ── */
+    .settings-card{background:#1a1a22;border:1px solid #2a2a36;border-radius:16px;padding:14px;margin-bottom:12px}
+    .settings-card h3{font-size:13px;font-weight:600;color:#888;margin-bottom:12px}
+    .setting-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+    .setting-row:last-child{margin-bottom:0}
+    .setting-label{font-size:13px;color:#aaa}
+    .setting-value{font-size:13px;font-weight:700;color:#4ade80;min-width:36px;text-align:right}
+    input[type=range]{width:100%;-webkit-appearance:none;height:4px;border-radius:2px;background:#2a2a36;outline:none}
+    input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:#4ade80;cursor:pointer}
+    .freq-btns{display:flex;gap:6px}
+    .freq-btn{padding:5px 12px;border-radius:8px;border:1px solid #2a2a36;background:none;color:#666;font-size:12px;font-weight:600;cursor:pointer}
+    .freq-btn.active{background:#4ade8022;border-color:#4ade8066;color:#4ade80}
+    .store-checks{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+    .store-check{padding:5px 12px;border-radius:20px;border:1px solid;font-size:12px;font-weight:700;cursor:pointer;transition:opacity .15s}
+    .store-check.on.jumbo     {color:#22c55e;border-color:#22c55e55;background:#22c55e11}
+    .store-check.on.chango    {color:#38bdf8;border-color:#38bdf855;background:#38bdf811}
+    .store-check.on.anonima   {color:#818cf8;border-color:#818cf855;background:#818cf811}
+    .store-check.on.coope     {color:#fb923c;border-color:#fb923c55;background:#fb923c11}
+    .store-check.on.carrefour {color:#f87171;border-color:#f8717155;background:#f8717111}
+    .store-check.off          {opacity:.3;background:none}
+
+    /* ── BUTTONS ── */
+    .btn-primary{width:100%;padding:13px;background:#4ade80;color:#0a0a0e;font-size:15px;font-weight:700;border:none;border-radius:13px;cursor:pointer}
+    .btn-primary:active{background:#22c55e}
+    .btn-danger{width:100%;padding:11px;background:transparent;color:#f87171;font-size:13px;font-weight:600;border:1px solid #f8717133;border-radius:12px;cursor:pointer;margin-top:8px}
+    .btn-danger:active{background:#f8717111}
+    .btn-save{padding:9px 20px;background:#4ade80;color:#0a0a0e;font-size:13px;font-weight:700;border:none;border-radius:10px;cursor:pointer}
+
+    /* ── FAB ── */
+    .fab{position:fixed;bottom:24px;right:20px;width:52px;height:52px;border-radius:50%;background:#4ade80;color:#0a0a0e;font-size:24px;font-weight:700;border:none;cursor:pointer;box-shadow:0 4px 20px #4ade8055;display:flex;align-items:center;justify-content:center;z-index:200}
+    .fab:active{background:#22c55e;transform:scale(.95)}
+
+    /* ── MODAL ── */
+    .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);display:flex;align-items:flex-end;justify-content:center;z-index:300;padding:0 0 env(safe-area-inset-bottom)}
+    .modal-overlay.hidden{display:none}
+    .modal-box{background:#1a1a22;border:1px solid #2a2a36;border-radius:20px 20px 0 0;padding:24px 20px;width:100%;max-width:500px;animation:slideUp .2s ease}
+    @keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+    .modal-title{font-size:16px;font-weight:700;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center}
+    .modal-close{background:none;border:none;color:#666;font-size:20px;cursor:pointer;padding:0 4px}
+    .input-group{margin-bottom:12px}
+    .input-group label{font-size:12px;color:#666;display:block;margin-bottom:5px;font-weight:600}
+    .input-group input,.input-group select{width:100%;padding:11px 13px;background:#111116;border:1px solid #2a2a36;border-radius:11px;color:#f0f0f0;font-size:15px;outline:none}
+    .input-group input:focus,.input-group select:focus{border-color:#4ade80}
+    .input-group select option{background:#1a1a22}
+
+    /* ── SETTINGS VIEW ── */
+    .settings-section{background:#1a1a22;border:1px solid #2a2a36;border-radius:16px;padding:14px;margin-bottom:12px}
+    .settings-section h3{font-size:12px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px}
+    .settings-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #1e1e26}
+    .settings-row:last-child{border-bottom:none;padding-bottom:0}
+    .settings-row label{font-size:14px;color:#ccc}
+    .settings-row small{font-size:11px;color:#555;display:block}
+    .settings-row input[type=text],.settings-row input[type=number]{padding:7px 10px;background:#111116;border:1px solid #2a2a36;border-radius:8px;color:#f0f0f0;font-size:13px;outline:none;width:160px;text-align:right}
+    .settings-row input[type=text]:focus,.settings-row input[type=number]:focus{border-color:#4ade80}
+
+    /* ── EMPTY STATE ── */
+    .empty-state{text-align:center;padding:60px 20px}
+    .empty-state .icon{font-size:48px;margin-bottom:12px}
+    .empty-state p{color:#555;font-size:14px;line-height:1.6}
+    .empty-state p b{color:#888}
+
+    /* ── TOAST ── */
+    .toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#1a1a22;border:1px solid #2a2a36;border-radius:12px;padding:10px 18px;font-size:13px;font-weight:600;z-index:400;opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap}
+    .toast.show{opacity:1}
+
+    /* ── IMPORT MODAL ── */
+    .import-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.85);display:flex;align-items:flex-end;justify-content:center;z-index:500;padding:0}
+    .import-overlay.hidden{display:none}
+    .import-box{background:#1a1a22;border:1px solid #2a2a36;border-radius:20px 20px 0 0;padding:24px 20px 36px;width:100%;max-width:500px;animation:slideUp .2s ease}
+    .import-title{font-size:16px;font-weight:700;margin-bottom:6px}
+    .import-sub{font-size:13px;color:#666;margin-bottom:16px}
+    .import-list{max-height:200px;overflow-y:auto;margin-bottom:16px;border:1px solid #2a2a36;border-radius:12px;background:#111116}
+    .import-item{display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid #1e1e26;font-size:13px}
+    .import-item:last-child{border-bottom:none}
+    .import-item-img{width:32px;height:32px;border-radius:6px;object-fit:contain;background:#1a1a22;flex-shrink:0}
+    .import-item-nombre{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .import-item-ean{font-size:10px;font-family:monospace;color:#4ade80;flex-shrink:0}
+    .import-progress{height:4px;background:#2a2a36;border-radius:2px;margin-bottom:12px;overflow:hidden;display:none}
+    .import-progress-bar{height:100%;background:#4ade80;border-radius:2px;transition:width .3s;width:0%}
+    .import-status{font-size:12px;color:#666;text-align:center;margin-bottom:12px;min-height:16px}
+
+    /* ── LOADING ── */
+    .loading-row{text-align:center;padding:40px;color:#555;font-size:14px}
+    .spinner{display:inline-block;width:16px;height:16px;border:2px solid #2a2a36;border-top-color:#4ade80;border-radius:50%;animation:spin .7s linear infinite;margin-right:8px;vertical-align:middle}
+    @keyframes spin{to{transform:rotate(360deg)}}
+  </style>
+</head>
+<body>
+
+<!-- ════════ CONFIGURACIÓN — EDITAR ESTOS VALORES ════════ -->
+<script>
+  // ┌─────────────────────────────────────────────────────┐
+  // │  Reemplazá estos valores con los de tu proyecto     │
+  // │  Supabase → Settings → API                          │
+  // └─────────────────────────────────────────────────────┘
+  const SUPABASE_URL      = "https://TU_PROJECT_REF.supabase.co"
+  const SUPABASE_ANON_KEY = "TU_ANON_KEY"
+
+  // URL de tu servidor Flask (si corrés watchserver.py localmente)
+  // Dejar vacío si usás solo GitHub Pages + Supabase directo
+  const WATCHSERVER_URL = ""  // ej: "http://localhost:5001"
+</script>
+<!-- ═══════════════════════════════════════════════════════ -->
+
+<header>
+  <div class="logo">
+    <div class="logo-dot"></div>
+    <h1>Precio<span>Watch</span></h1>
+  </div>
+  <button class="btn-icon" onclick="showView('settings')">⚙️</button>
+</header>
+
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('lista')">📋 Lista</button>
+  <button class="tab" onclick="switchTab('historial')">📊 Historial</button>
+</div>
+
+<!-- ════ LISTA ════ -->
+<div id="view-lista" class="view active container">
+  <div id="watchlist-container">
+    <div class="loading-row"><span class="spinner"></span>Cargando...</div>
+  </div>
+</div>
+
+<!-- ════ HISTORIAL (selector de producto) ════ -->
+<div id="view-historial" class="view container" style="display:none">
+  <div class="input-group" style="margin-bottom:14px">
+    <label>Producto</label>
+    <select id="hist-select" onchange="loadHistoryForSelected()">
+      <option value="">— Seleccioná un producto —</option>
+    </select>
+  </div>
+  <div id="hist-chart-area"></div>
+</div>
+
+<!-- ════ DETALLE DE PRODUCTO ════ -->
+<div id="view-detail" class="view container" style="display:none">
+  <button class="back-btn" onclick="showView('lista')">← Volver</button>
+  <div id="detail-content"></div>
+</div>
+
+<!-- ════ CONFIGURACIÓN GLOBAL ════ -->
+<div id="view-settings" class="view container" style="display:none">
+  <button class="back-btn" onclick="showView('lista')">← Volver</button>
+  <div class="settings-section">
+    <h3>Telegram</h3>
+    <div class="settings-row">
+      <div><label>Bot Token</label><small>@BotFather → /newbot</small></div>
+      <input type="text" id="cfg-tg-token" placeholder="1234:ABCD..." style="width:180px">
+    </div>
+    <div class="settings-row">
+      <div><label>Chat ID</label><small>@userinfobot o /start tu bot</small></div>
+      <input type="text" id="cfg-tg-chat" placeholder="-100123456">
+    </div>
+  </div>
+  <div class="settings-section">
+    <h3>GitHub Actions (chequeo manual)</h3>
+    <div class="settings-row">
+      <div><label>Repo</label><small>usuario/preciowatch</small></div>
+      <input type="text" id="cfg-gh-repo" placeholder="usuario/preciowatch">
+    </div>
+    <div class="settings-row">
+      <div><label>Personal Token</label><small>github.com → Settings → Tokens</small></div>
+      <input type="text" id="cfg-gh-token" placeholder="ghp_...">
+    </div>
+  </div>
+  <div class="settings-section">
+    <h3>Defaults</h3>
+    <div class="settings-row">
+      <label>Umbral alerta (%)</label>
+      <input type="number" id="cfg-umbral" value="5" min="1" max="50" style="width:80px">
+    </div>
+    <div class="settings-row">
+      <label>Intervalo por defecto</label>
+      <select id="cfg-intervalo" style="width:120px;padding:7px 10px;background:#111116;border:1px solid #2a2a36;border-radius:8px;color:#f0f0f0;font-size:13px;outline:none">
+        <option value="6">Cada 6h</option>
+        <option value="12" selected>Cada 12h</option>
+        <option value="24">1 vez/día</option>
+      </select>
+    </div>
+  </div>
+  <button class="btn-primary" onclick="saveSettings()">💾 Guardar configuración</button>
+  <div style="margin-top:14px">
+    <button class="btn-primary" style="background:#1a1a22;border:1px solid #2a2a36;color:#888" onclick="triggerGithubCheck()">▶️ Chequear ahora (GitHub Actions)</button>
+  </div>
+</div>
+
+<!-- ════ FAB ════ -->
+<button class="fab" onclick="openAddModal()" id="fab">+</button>
+
+<!-- ════ MODAL AGREGAR PRODUCTO ════ -->
+<div class="modal-overlay hidden" id="add-modal">
+  <div class="modal-box">
+    <div class="modal-title">
+      Agregar producto
+      <button class="modal-close" onclick="closeModal('add-modal')">✕</button>
+    </div>
+    <div class="input-group">
+      <label>EAN / Código de barras</label>
+      <input type="text" id="add-ean" placeholder="ej: 7790070010238" inputmode="numeric" oninput="onEanInput()">
+    </div>
+    <div class="input-group">
+      <label>Nombre del producto</label>
+      <input type="text" id="add-nombre" placeholder="ej: Café Cabrales 500g">
+    </div>
+    <div id="add-lookup-status" style="font-size:12px;color:#555;margin-bottom:10px;min-height:16px"></div>
+    <div class="input-group">
+      <label>Umbral de alerta (%)</label>
+      <input type="number" id="add-umbral" value="5" min="1" max="50">
+    </div>
+    <div class="input-group">
+      <label>Intervalo de chequeo</label>
+      <select id="add-intervalo">
+        <option value="6">Cada 6 horas</option>
+        <option value="12" selected>Cada 12 horas</option>
+        <option value="24">1 vez al día</option>
+      </select>
+    </div>
+    <button class="btn-primary" onclick="addProduct()">➕ Agregar</button>
+  </div>
+</div>
+
+<!-- ════ IMPORT MODAL ════ -->
+<div class="import-overlay hidden" id="import-modal">
+  <div class="import-box">
+    <div class="import-title">📡 Importar desde PrecioScan</div>
+    <div class="import-sub" id="import-sub"></div>
+    <div class="import-list" id="import-list"></div>
+    <div class="import-progress" id="import-progress">
+      <div class="import-progress-bar" id="import-progress-bar"></div>
+    </div>
+    <div class="import-status" id="import-status"></div>
+    <button class="btn-primary" id="import-confirm-btn" onclick="confirmarImport()">✅ Importar todos</button>
+    <button class="btn-danger" style="margin-top:8px" onclick="cerrarImportModal()">Cancelar</button>
+  </div>
+</div>
+
+<!-- ════ TOAST ════ -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ════════════════════════════════════════════════════════
+// SUPABASE CLIENT
+// ════════════════════════════════════════════════════════
+const { createClient } = supabase
+const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+
+// ════════════════════════════════════════════════════════
+// ESTADO
+// ════════════════════════════════════════════════════════
+let watchlist   = []
+let currentItem = null
+let currentChart = null
+let chartRangeDay = 30
+let chartStoreVisibility = { jumbo:true, chango:true, anonima:true, coope:true, carrefour:true }
+
+const TIENDAS = {
+  jumbo:     { nombre:"Jumbo",       color:"#22c55e" },
+  chango:    { nombre:"ChangoMás",   color:"#38bdf8" },
+  anonima:   { nombre:"La Anónima",  color:"#818cf8" },
+  coope:     { nombre:"La Coope",    color:"#fb923c" },
+  carrefour: { nombre:"Carrefour",   color:"#f87171" },
+}
+
+// ════════════════════════════════════════════════════════
+// NAVEGACIÓN
+// ════════════════════════════════════════════════════════
+function showView(name) {
+  document.querySelectorAll('.view').forEach(v => v.style.display = 'none')
+  const v = document.getElementById(`view-${name}`)
+  if (v) { v.style.display = 'block'; v.classList.add('active') }
+  document.getElementById('fab').style.display = name === 'lista' ? '' : 'none'
+  if (name === 'settings') loadSettingsForm()
+}
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'))
+  document.querySelectorAll('.view').forEach(v => v.style.display = 'none')
+  if (tab === 'lista') {
+    document.querySelector('.tab:nth-child(1)').classList.add('active')
+    document.getElementById('view-lista').style.display = 'block'
+    document.getElementById('fab').style.display = ''
+  } else {
+    document.querySelector('.tab:nth-child(2)').classList.add('active')
+    document.getElementById('view-historial').style.display = 'block'
+    document.getElementById('fab').style.display = 'none'
+    populateHistorySelect()
+  }
+}
+
+// ════════════════════════════════════════════════════════
+// WATCHLIST — CARGA
+// ════════════════════════════════════════════════════════
+async function loadWatchlist() {
+  const { data, error } = await db.from('watchlist').select('*').order('created_at', { ascending: true })
+  if (error) { console.error(error); return }
+  watchlist = data || []
+  renderWatchlist()
+  populateHistorySelect()
+}
+
+function renderWatchlist() {
+  const c = document.getElementById('watchlist-container')
+  if (!watchlist.length) {
+    c.innerHTML = `
+      <div class="empty-state">
+        <div class="icon">📡</div>
+        <p>No estás monitoreando ningún producto todavía.<br>
+        <b>Tocá el + para agregar uno</b> o importá desde PrecioScan.</p>
+      </div>`
+    return
+  }
+  c.innerHTML = watchlist.map(item => renderCard(item)).join('')
+}
+
+function renderCard(item) {
+  const img = item.imagen
+    ? `<img class="card-img" src="${item.imagen}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+    : ''
+  const imgPlaceholder = `<div class="card-img-placeholder" ${item.imagen ? 'style="display:none"' : ''}>🛒</div>`
+
+  const priceChips = Object.keys(TIENDAS)
+    .filter(k => (item.tiendas_activas || []).includes(k))
+    .map(k => `<span class="price-chip ${k}" id="chip-${item.id}-${k}">…</span>`)
+    .join('')
+
+  const badgeActivo = item.activo
+    ? ''
+    : `<span class="card-badge badge-inactivo">PAUSADO</span>`
+
+  const ultimoChequeo = item.ultimo_chequeo
+    ? `Hace ${tiempoRelativo(item.ultimo_chequeo)}`
+    : 'Sin chequear'
+
+  return `
+    <div class="product-card" id="card-${item.id}" onclick="openDetail('${item.id}')">
+      <div class="card-main">
+        ${img}${imgPlaceholder}
+        <div class="card-info">
+          <div class="card-nombre">${item.nombre}</div>
+          <div class="card-prices">${priceChips}</div>
+          <div class="card-meta">
+            <span>${ultimoChequeo}</span>
+            ${badgeActivo}
+            <span style="margin-left:auto;font-size:10px;color:#444">c/${item.intervalo_horas}h · ${item.umbral_pct}%</span>
+          </div>
+        </div>
+        <button class="toggle-btn ${item.activo ? 'on' : 'off'}"
+          onclick="event.stopPropagation();toggleActivo('${item.id}', ${!item.activo})"
+          title="${item.activo ? 'Pausar monitoreo' : 'Activar monitoreo'}">
+        </button>
+      </div>
+    </div>`
+}
+
+async function loadLastPricesForCards() {
+  if (!watchlist.length) return
+  const ids = watchlist.map(i => i.id)
+
+  // Para cada item, buscar el último precio por tienda
+  for (const item of watchlist) {
+    for (const tienda of (item.tiendas_activas || [])) {
+      const { data } = await db.from('price_history')
+        .select('precio,disponible')
+        .eq('watchlist_id', item.id)
+        .eq('tienda', tienda)
+        .order('checked_at', { ascending: false })
+        .limit(1)
+      const chip = document.getElementById(`chip-${item.id}-${tienda}`)
+      if (!chip) continue
+      if (data && data[0]) {
+        const p = data[0].precio
+        const dis = data[0].disponible
+        chip.textContent = p ? formatPrecio(p) : 'N/D'
+        if (!dis) chip.classList.add('no-stock')
+      } else {
+        chip.textContent = '—'
+      }
+    }
+  }
+}
+
+// ════════════════════════════════════════════════════════
+// DETALLE DE PRODUCTO
+// ════════════════════════════════════════════════════════
+async function openDetail(itemId) {
+  currentItem = watchlist.find(i => i.id === itemId)
+  if (!currentItem) return
+  showView('detail')
+  renderDetail()
+  await loadChart(chartRangeDay)
+}
+
+function renderDetail() {
+  const item = currentItem
+  const img = item.imagen
+    ? `<img class="detail-img" src="${item.imagen}" onerror="this.src=''">` 
+    : `<div class="detail-img" style="display:flex;align-items:center;justify-content:center;font-size:28px">🛒</div>`
+
+  const storesTodas = Object.keys(TIENDAS)
+  const storeChecks = storesTodas.map(k => {
+    const on = (item.tiendas_activas || []).includes(k)
+    return `<button class="store-check ${on ? 'on' : 'off'} ${k}" id="sch-${k}"
+      onclick="toggleTiendaItem('${item.id}','${k}')">${TIENDAS[k].nombre}</button>`
+  }).join('')
+
+  const freqOpts = [6,12,24]
+  const freqBtns = freqOpts.map(h =>
+    `<button class="freq-btn ${item.intervalo_horas == h ? 'active' : ''}" onclick="setIntervalo('${item.id}',${h})">${h}h</button>`
+  ).join('')
+
+  document.getElementById('detail-content').innerHTML = `
+    <div class="detail-header">
+      ${img}
+      <div>
+        <div class="detail-nombre">${item.nombre}</div>
+        <div class="detail-ean">EAN: ${item.ean}</div>
+      </div>
+    </div>
+
+    <!-- CHART -->
+    <div class="chart-card">
+      <div class="chart-header">
+        <span class="chart-title">Historial de precios</span>
+        <div class="range-btns">
+          <button class="range-btn ${chartRangeDay==7?'active':''}"  onclick="setChartRange(7)">7d</button>
+          <button class="range-btn ${chartRangeDay==30?'active':''}" onclick="setChartRange(30)">30d</button>
+          <button class="range-btn ${chartRangeDay==90?'active':''}" onclick="setChartRange(90)">3m</button>
+        </div>
+      </div>
+      <div class="chart-wrap"><canvas id="detail-chart"></canvas></div>
+      <div class="store-toggles" id="chart-store-toggles"></div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div class="settings-card">
+      <h3>⚙️ Configuración del producto</h3>
+      <div class="setting-row">
+        <span class="setting-label">Umbral de alerta</span>
+        <span class="setting-value" id="umbral-val">${item.umbral_pct}%</span>
+      </div>
+      <input type="range" min="1" max="30" value="${item.umbral_pct}"
+        oninput="document.getElementById('umbral-val').textContent=this.value+'%'"
+        onchange="updateUmbral('${item.id}',this.value)"
+        style="margin-bottom:14px">
+
+      <div class="setting-row" style="margin-bottom:8px">
+        <span class="setting-label">Chequear cada</span>
+        <div class="freq-btns">${freqBtns}</div>
+      </div>
+
+      <div class="setting-row" style="flex-direction:column;align-items:flex-start;gap:8px">
+        <span class="setting-label">Tiendas activas</span>
+        <div class="store-checks">${storeChecks}</div>
+      </div>
+    </div>
+
+    <button class="btn-primary" onclick="checkNow('${item.id}')">🔄 Chequear ahora</button>
+    <button class="btn-danger" onclick="deleteItem('${item.id}')">🗑️ Eliminar de la lista</button>
+  `
+
+  renderChartToggles()
+}
+
+function renderChartToggles() {
+  const c = document.getElementById('chart-store-toggles')
+  if (!c) return
+  c.innerHTML = Object.keys(TIENDAS).map(k => {
+    const on = chartStoreVisibility[k]
+    return `<button class="store-toggle ${k} ${on?'on':'off'}" onclick="toggleChartStore('${k}')">${TIENDAS[k].nombre}</button>`
+  }).join('')
+}
+
+// ════════════════════════════════════════════════════════
+// CHART
+// ════════════════════════════════════════════════════════
+async function loadChart(days) {
+  if (!currentItem) return
+  const cutoff = new Date()
+  cutoff.setDate(cutoff.getDate() - days)
+
+  const { data, error } = await db.from('price_history')
+    .select('tienda,precio,checked_at')
+    .eq('watchlist_id', currentItem.id)
+    .gte('checked_at', cutoff.toISOString())
+    .not('precio', 'is', null)
+    .order('checked_at', { ascending: true })
+
+  if (error) { console.error(error); return }
+
+  if (currentChart) { currentChart.destroy(); currentChart = null }
+
+  const canvas = document.getElementById('detail-chart')
+  if (!canvas) return
+
+  // Agrupar por tienda
+  const datasets = []
+  for (const [key, meta] of Object.entries(TIENDAS)) {
+    const puntos = (data || [])
+      .filter(r => r.tienda === key && r.precio)
+      .map(r => ({ x: new Date(r.checked_at), y: r.precio }))
+    if (!puntos.length) continue
+    datasets.push({
+      label: meta.nombre,
+      data: puntos,
+      borderColor: meta.color,
+      backgroundColor: meta.color + '22',
+      borderWidth: 2,
+      pointRadius: puntos.length < 20 ? 4 : 2,
+      pointHoverRadius: 6,
+      tension: 0.3,
+      fill: false,
+      hidden: !chartStoreVisibility[key],
+      storeKey: key,
+    })
+  }
+
+  if (!datasets.length) {
+    canvas.parentElement.innerHTML = '<p style="text-align:center;color:#555;font-size:13px;padding:60px 0">Sin datos en el período seleccionado</p>'
+    return
+  }
+
+  currentChart = new Chart(canvas, {
+    type: 'line',
+    data: { datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#1a1a22',
+          borderColor: '#2a2a36',
+          borderWidth: 1,
+          titleColor: '#888',
+          bodyColor: '#f0f0f0',
+          callbacks: {
+            label: ctx => ` ${ctx.dataset.label}: ${formatPrecio(ctx.parsed.y)}`
+          }
+        }
+      },
+      scales: {
+        x: {
+          type: 'time',
+          time: { unit: days <= 7 ? 'day' : days <= 30 ? 'day' : 'week', displayFormats: { day:'d/M', week:'d/M' } },
+          grid: { color: '#1e1e26' },
+          ticks: { color: '#555', maxTicksLimit: 6 }
+        },
+        y: {
+          grid: { color: '#1e1e26' },
+          ticks: { color: '#555', callback: v => formatPrecio(v) }
+        }
+      }
+    }
+  })
+}
+
+function setChartRange(days) {
+  chartRangeDay = days
+  document.querySelectorAll('.range-btn').forEach(b => {
+    b.classList.toggle('active', b.textContent === days+'d' || (days===90 && b.textContent==='3m'))
+  })
+  loadChart(days)
+}
+
+function toggleChartStore(key) {
+  chartStoreVisibility[key] = !chartStoreVisibility[key]
+  if (currentChart) {
+    const ds = currentChart.data.datasets.find(d => d.storeKey === key)
+    if (ds) { ds.hidden = !chartStoreVisibility[key]; currentChart.update() }
+  }
+  document.querySelectorAll('.store-toggle').forEach(b => {
+    if (b.classList.contains(key)) b.classList.toggle('off', !chartStoreVisibility[key])
+  })
+}
+
+// ════════════════════════════════════════════════════════
+// HISTORIAL — VISTA SEPARADA
+// ════════════════════════════════════════════════════════
+function populateHistorySelect() {
+  const sel = document.getElementById('hist-select')
+  sel.innerHTML = '<option value="">— Seleccioná un producto —</option>'
+    + watchlist.map(i => `<option value="${i.id}">${i.nombre}</option>`).join('')
+}
+
+async function loadHistoryForSelected() {
+  const id = document.getElementById('hist-select').value
+  const area = document.getElementById('hist-chart-area')
+  if (!id) { area.innerHTML = ''; return }
+
+  currentItem = watchlist.find(i => i.id === id)
+  area.innerHTML = `
+    <div class="chart-card">
+      <div class="chart-header">
+        <span class="chart-title">Historial</span>
+        <div class="range-btns">
+          <button class="range-btn ${chartRangeDay==7?'active':''}"  onclick="setChartRange(7)">7d</button>
+          <button class="range-btn ${chartRangeDay==30?'active':''}" onclick="setChartRange(30)">30d</button>
+          <button class="range-btn ${chartRangeDay==90?'active':''}" onclick="setChartRange(90)">3m</button>
+        </div>
+      </div>
+      <div class="chart-wrap"><canvas id="detail-chart"></canvas></div>
+      <div class="store-toggles" id="chart-store-toggles"></div>
+    </div>`
+
+  renderChartToggles()
+  await loadChart(chartRangeDay)
+}
+
+// ════════════════════════════════════════════════════════
+// ACCIONES SOBRE ITEMS
+// ════════════════════════════════════════════════════════
+async function toggleActivo(id, nuevoEstado) {
+  const { error } = await db.from('watchlist').update({ activo: nuevoEstado }).eq('id', id)
+  if (error) { showToast('❌ Error'); return }
+  const item = watchlist.find(i => i.id === id)
+  if (item) item.activo = nuevoEstado
+  const btn = document.querySelector(`#card-${id} .toggle-btn`)
+  if (btn) { btn.className = `toggle-btn ${nuevoEstado ? 'on' : 'off'}` }
+  showToast(nuevoEstado ? '✅ Monitoreo activado' : '⏸️ Monitoreo pausado')
+}
+
+async function updateUmbral(id, valor) {
+  const { error } = await db.from('watchlist').update({ umbral_pct: parseFloat(valor) }).eq('id', id)
+  if (!error) { const item = watchlist.find(i => i.id === id); if (item) item.umbral_pct = valor }
+}
+
+async function setIntervalo(id, horas) {
+  const { error } = await db.from('watchlist').update({ intervalo_horas: horas }).eq('id', id)
+  if (error) { showToast('❌ Error'); return }
+  const item = watchlist.find(i => i.id === id)
+  if (item) item.intervalo_horas = horas
+  document.querySelectorAll('.freq-btn').forEach(b => {
+    b.classList.toggle('active', b.textContent === horas + 'h')
+  })
+  showToast('✅ Guardado')
+}
+
+async function toggleTiendaItem(id, tienda) {
+  const item = watchlist.find(i => i.id === id)
+  if (!item) return
+  let activas = [...(item.tiendas_activas || [])]
+  if (activas.includes(tienda)) {
+    activas = activas.filter(t => t !== tienda)
+  } else {
+    activas.push(tienda)
+  }
+  const { error } = await db.from('watchlist').update({ tiendas_activas: activas }).eq('id', id)
+  if (error) { showToast('❌ Error'); return }
+  item.tiendas_activas = activas
+  const btn = document.getElementById(`sch-${tienda}`)
+  if (btn) { btn.className = `store-check ${activas.includes(tienda) ? 'on' : 'off'} ${tienda}` }
+  showToast('✅ Guardado')
+}
+
+async function deleteItem(id) {
+  if (!confirm('¿Eliminar este producto del monitoreo?')) return
+  const { error } = await db.from('watchlist').delete().eq('id', id)
+  if (error) { showToast('❌ Error al eliminar'); return }
+  watchlist = watchlist.filter(i => i.id !== id)
+  showView('lista')
+  renderWatchlist()
+  loadLastPricesForCards()
+  showToast('🗑️ Eliminado')
+}
+
+async function checkNow(id) {
+  if (!WATCHSERVER_URL) {
+    showToast('⚡ Chequeo via GitHub Actions en configuración')
+    return
+  }
+  showToast('🔄 Chequeando...')
+  try {
+    const r = await fetch(`${WATCHSERVER_URL}/api/check/${id}`, { method: 'POST' })
+    const data = await r.json()
+    showToast(data.message || '✅ Chequeo iniciado')
+    setTimeout(() => { loadWatchlist().then(loadLastPricesForCards) }, 3000)
+  } catch (e) {
+    showToast('❌ No se pudo conectar al servidor')
+  }
+}
+
+// ════════════════════════════════════════════════════════
+// AGREGAR PRODUCTO
+// ════════════════════════════════════════════════════════
+let eanLookupTimer = null
+
+function openAddModal() {
+  document.getElementById('add-modal').classList.remove('hidden')
+  document.getElementById('add-ean').focus()
+}
+
+function closeModal(id) {
+  document.getElementById(id).classList.add('hidden')
+}
+
+function onEanInput() {
+  clearTimeout(eanLookupTimer)
+  const ean = document.getElementById('add-ean').value.trim()
+  if (ean.length < 8) return
+  eanLookupTimer = setTimeout(() => lookupEan(ean), 600)
+}
+
+async function lookupEan(ean) {
+  const status = document.getElementById('add-lookup-status')
+  status.textContent = '🔍 Buscando en tiendas...'
+  status.style.color = '#4ade80'
+
+  if (WATCHSERVER_URL) {
+    try {
+      const r = await fetch(`${WATCHSERVER_URL}/api/lookup/${ean}`)
+      const data = await r.json()
+      if (data.encontrado) {
+        document.getElementById('add-nombre').value = data.nombre
+        status.textContent = `✅ Encontrado: ${data.nombre}`
+        return
+      }
+    } catch (e) {}
+  }
+  status.textContent = ''
+}
+
+async function addProduct() {
+  const ean    = document.getElementById('add-ean').value.trim()
+  const nombre = document.getElementById('add-nombre').value.trim()
+  const umbral = parseFloat(document.getElementById('add-umbral').value) || 5
+  const intervalo = parseInt(document.getElementById('add-intervalo').value) || 12
+
+  if (!ean || !nombre) { showToast('⚠️ EAN y nombre son requeridos'); return }
+
+  const { data, error } = await db.from('watchlist').insert({
+    ean, nombre, umbral_pct: umbral, intervalo_horas: intervalo,
+    tiendas_activas: ['jumbo','chango','anonima','coope','carrefour'],
+    activo: true,
+  }).select()
+
+  if (error) {
+    if (error.code === '23505') { showToast('⚠️ Este EAN ya está en la lista'); return }
+    showToast('❌ Error al guardar'); return
+  }
+
+  closeModal('add-modal')
+  await loadWatchlist()
+  loadLastPricesForCards()
+  showToast('✅ Producto agregado')
+
+  // Limpiar form
+  document.getElementById('add-ean').value = ''
+  document.getElementById('add-nombre').value = ''
+  document.getElementById('add-lookup-status').textContent = ''
+}
+
+// ════════════════════════════════════════════════════════
+// CONFIGURACIÓN GLOBAL
+// ════════════════════════════════════════════════════════
+function loadSettingsForm() {
+  document.getElementById('cfg-tg-token').value   = localStorage.getItem('tg_token')   || ''
+  document.getElementById('cfg-tg-chat').value     = localStorage.getItem('tg_chat')     || ''
+  document.getElementById('cfg-gh-repo').value     = localStorage.getItem('gh_repo')     || ''
+  document.getElementById('cfg-gh-token').value    = localStorage.getItem('gh_token')    || ''
+  document.getElementById('cfg-umbral').value      = localStorage.getItem('umbral')      || '5'
+  document.getElementById('cfg-intervalo').value   = localStorage.getItem('intervalo')   || '12'
+}
+
+function saveSettings() {
+  localStorage.setItem('tg_token',  document.getElementById('cfg-tg-token').value.trim())
+  localStorage.setItem('tg_chat',   document.getElementById('cfg-tg-chat').value.trim())
+  localStorage.setItem('gh_repo',   document.getElementById('cfg-gh-repo').value.trim())
+  localStorage.setItem('gh_token',  document.getElementById('cfg-gh-token').value.trim())
+  localStorage.setItem('umbral',    document.getElementById('cfg-umbral').value)
+  localStorage.setItem('intervalo', document.getElementById('cfg-intervalo').value)
+  showToast('✅ Configuración guardada')
+}
+
+async function triggerGithubCheck() {
+  const token = localStorage.getItem('gh_token')
+  const repo  = localStorage.getItem('gh_repo')
+  if (!token || !repo) { showToast('⚠️ Configurá repo y token primero'); return }
+  try {
+    const r = await fetch(`https://api.github.com/repos/${repo}/actions/workflows/monitor.yml/dispatches`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github+json' },
+      body: JSON.stringify({ ref: 'main' })
+    })
+    if (r.status === 204) showToast('✅ Chequeo iniciado en GitHub Actions')
+    else showToast(`❌ Error ${r.status}`)
+  } catch (e) {
+    showToast('❌ Error de conexión')
+  }
+}
+
+// ════════════════════════════════════════════════════════
+// HELPERS
+// ════════════════════════════════════════════════════════
+function formatPrecio(p) {
+  if (!p && p !== 0) return 'N/D'
+  return '$' + Math.round(p).toLocaleString('es-AR')
+}
+
+function tiempoRelativo(isoStr) {
+  const diff = (Date.now() - new Date(isoStr)) / 1000
+  if (diff < 60)    return 'recién'
+  if (diff < 3600)  return Math.floor(diff / 60) + ' min'
+  if (diff < 86400) return Math.floor(diff / 3600) + 'h'
+  return Math.floor(diff / 86400) + 'd'
+}
+
+let toastTimer
+function showToast(msg) {
+  const t = document.getElementById('toast')
+  t.textContent = msg
+  t.classList.add('show')
+  clearTimeout(toastTimer)
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2500)
+}
+
+// ════════════════════════════════════════════════════════
+// IMPORTAR DESDE PRECIOSCAN (URL ?import=BASE64URL)
+// ════════════════════════════════════════════════════════
+let _importPayload = []
+
+function checkImportParams() {
+  const params = new URLSearchParams(window.location.search)
+  const raw = params.get('import')
+  if (!raw) return
+  window.history.replaceState({}, '', window.location.pathname)
+  try {
+    // base64url → base64 → JSON
+    const b64 = raw.replace(/-/g, '+').replace(/_/g, '/')
+    const json = decodeURIComponent(escape(atob(b64)))
+    const items = JSON.parse(json)
+    if (!Array.isArray(items) || !items.length) return
+    _importPayload = items
+    mostrarImportModal(items)
+  } catch(e) {
+    console.error('Import decode error:', e)
+    showToast('❌ Link de importación inválido')
+  }
+}
+
+function mostrarImportModal(items) {
+  const modal = document.getElementById('import-modal')
+  document.getElementById('import-sub').textContent =
+    `Se van a agregar ${items.length} producto${items.length > 1 ? 's' : ''} a tu watchlist.`
+
+  // Renderizar lista
+  document.getElementById('import-list').innerHTML = items.map(it => {
+    const imgHtml = it.i
+      ? `<img class="import-item-img" src="${it.i}" onerror="this.src=''">`
+      : `<div class="import-item-img" style="display:flex;align-items:center;justify-content:center;font-size:16px">🛒</div>`
+    return `<div class="import-item">
+      ${imgHtml}
+      <span class="import-item-nombre">${it.n || it.e}</span>
+      <span class="import-item-ean">${it.e}</span>
+    </div>`
+  }).join('')
+
+  modal.classList.remove('hidden')
+  document.body.style.overflow = 'hidden'
+}
+
+async function confirmarImport() {
+  if (!_importPayload.length) return
+
+  const btn = document.getElementById('import-confirm-btn')
+  const progress = document.getElementById('import-progress')
+  const bar = document.getElementById('import-progress-bar')
+  const status = document.getElementById('import-status')
+  const umbralDefault = parseFloat(localStorage.getItem('umbral') || '5')
+  const intervaloDefault = parseInt(localStorage.getItem('intervalo') || '12')
+
+  btn.disabled = true
+  btn.textContent = 'Importando...'
+  progress.style.display = 'block'
+
+  let ok = 0, dups = 0, err = 0
+  for (let i = 0; i < _importPayload.length; i++) {
+    const it = _importPayload[i]
+    bar.style.width = Math.round((i / _importPayload.length) * 100) + '%'
+    status.textContent = `(${i + 1}/${_importPayload.length}) ${it.n || it.e}…`
+
+    try {
+      const { error } = await db.from('watchlist').insert({
+        ean:             it.e,
+        nombre:          it.n || it.e,
+        imagen:          it.i || '',
+        umbral_pct:      umbralDefault,
+        intervalo_horas: intervaloDefault,
+        tiendas_activas: ['jumbo','chango','anonima','coope','carrefour'],
+        activo:          true,
+      })
+      if (error) {
+        if (error.code === '23505') dups++  // ya existe
+        else err++
+      } else {
+        ok++
+      }
+    } catch(e) {
+      err++
+    }
+  }
+
+  bar.style.width = '100%'
+
+  // Resultado
+  let msg = `✅ ${ok} importado${ok !== 1 ? 's' : ''}`
+  if (dups) msg += ` · ${dups} ya existían`
+  if (err)  msg += ` · ${err} error${err !== 1 ? 'es' : ''}`
+  status.textContent = msg
+
+  btn.textContent = '✓ Listo'
+  setTimeout(async () => {
+    cerrarImportModal()
+    await loadWatchlist()
+    loadLastPricesForCards()
+  }, 1200)
+}
+
+function cerrarImportModal() {
+  document.getElementById('import-modal').classList.add('hidden')
+  document.body.style.overflow = ''
+  _importPayload = []
+  // Resetear estado interno del modal
+  document.getElementById('import-progress').style.display = 'none'
+  document.getElementById('import-progress-bar').style.width = '0%'
+  document.getElementById('import-status').textContent = ''
+  const btn = document.getElementById('import-confirm-btn')
+  btn.disabled = false
+  btn.textContent = '✅ Importar todos'
+}
+
+// ════════════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', async () => {
+  await loadWatchlist()
+  await loadLastPricesForCards()
+  checkImportParams()
+})
+</script>
+</body>
+</html>
